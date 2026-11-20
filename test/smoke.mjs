@@ -65,6 +65,7 @@ const React = {
   createElement: () => null,
   useEffect: () => {},
   useRef: () => ({ current: null }),
+  useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
   useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
 }
 

@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-kbar',
   factory(require) {
     const React = require('react')
-    const { useEffect, useRef, useSyncExternalStore } = React
+    const { useEffect, useRef, useState, useSyncExternalStore } = React
     const h = React.createElement
 
     const ZH = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language || '')
@@ -12,6 +12,7 @@ window.__ModuleLoader__.load({
           title: 'KBar 命令面板',
           openLabel: '打开命令面板',
           placeholder: '搜索会话，或输入动作…',
+          dragHint: '拖动移动，双击复位',
           empty: '没有匹配的结果',
           actionGroup: '动作',
           sessionTag: '会话',
@@ -32,6 +33,7 @@ window.__ModuleLoader__.load({
           title: 'KBar command palette',
           openLabel: 'Open the command palette',
           placeholder: 'Search sessions or type an action…',
+          dragHint: 'Drag to move, double-click to reset',
           empty: 'No matching results',
           actionGroup: 'Action',
           sessionTag: 'session',
@@ -559,6 +561,33 @@ window.__ModuleLoader__.load({
         padding: '12px 14px',
         borderBottom: '1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.16))',
       },
+      dragBar: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        height: 28,
+        padding: '0 12px',
+        borderBottom: '1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.12))',
+        color: 'var(--dsw-alias-label-secondary, #808080)',
+        fontSize: 11,
+        letterSpacing: '0.06em',
+        cursor: 'grab',
+        userSelect: 'none',
+        touchAction: 'none',
+      },
+      dragDots: {
+        fontSize: 15,
+        lineHeight: 1,
+        opacity: 0.75,
+      },
+      dragTitle: {
+        fontWeight: 600,
+      },
+      dragHint: {
+        marginLeft: 'auto',
+        fontSize: 10,
+        opacity: 0.65,
+      },
       input: {
         flex: 1,
         minWidth: 0,
@@ -646,11 +675,83 @@ window.__ModuleLoader__.load({
       )
     }
 
+    const POSITION_KEY = 'dsh-kbar.position.v1'
+
+    function readPosition() {
+      try {
+        const raw = localStorage.getItem(POSITION_KEY)
+        if (!raw) return null
+        const value = JSON.parse(raw)
+        if (value && typeof value.x === 'number' && typeof value.y === 'number') return { x: value.x, y: value.y }
+      } catch {
+        /* ignore a broken saved position */
+      }
+      return null
+    }
+
+    function writePosition(position) {
+      try {
+        if (position === null) localStorage.removeItem(POSITION_KEY)
+        else localStorage.setItem(POSITION_KEY, JSON.stringify(position))
+      } catch {
+        /* storage unavailable */
+      }
+    }
+
     function KBar(props) {
       const store = props.kbar
       const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
       const inputRef = useRef(null)
       const listRef = useRef(null)
+      const [position, setPosition] = useState(() => readPosition())
+      const positionRef = useRef(position)
+      const dragRef = useRef(null)
+
+      const applyPosition = (next) => {
+        positionRef.current = next
+        setPosition(next)
+      }
+
+      const startDrag = (event) => {
+        if (event.button !== 0) return
+        const panel = event.currentTarget.parentElement
+        if (!panel) return
+        const rect = panel.getBoundingClientRect()
+        dragRef.current = {
+          offsetX: event.clientX - rect.left,
+          offsetY: event.clientY - rect.top,
+          width: rect.width,
+        }
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          /* pointer capture unavailable */
+        }
+        event.preventDefault()
+        const onMove = (moveEvent) => {
+          const drag = dragRef.current
+          if (!drag) return
+          const maxX = Math.max(8, window.innerWidth - drag.width - 8)
+          const maxY = Math.max(8, window.innerHeight - 80)
+          applyPosition({
+            x: Math.min(Math.max(moveEvent.clientX - drag.offsetX, 8), maxX),
+            y: Math.min(Math.max(moveEvent.clientY - drag.offsetY, 8), maxY),
+          })
+        }
+        const onUp = () => {
+          dragRef.current = null
+          window.removeEventListener('pointermove', onMove)
+          window.removeEventListener('pointerup', onUp)
+          writePosition(positionRef.current)
+        }
+        window.addEventListener('pointermove', onMove)
+        window.addEventListener('pointerup', onUp)
+      }
+
+      const resetPosition = () => {
+        writePosition(null)
+        applyPosition(null)
+      }
 
       useEffect(() => {
         if (!state.open) return undefined
@@ -678,6 +779,16 @@ window.__ModuleLoader__.load({
       }, [state.open, store])
 
       useEffect(() => {
+        if (!state.open || positionRef.current === null) return
+        const current = positionRef.current
+        const maxX = Math.max(8, window.innerWidth - 688)
+        const maxY = Math.max(8, window.innerHeight - 120)
+        if (current.x > maxX || current.y > maxY) {
+          applyPosition({ x: Math.min(current.x, maxX), y: Math.min(current.y, maxY) })
+        }
+      }, [state.open])
+
+      useEffect(() => {
         if (!state.open) return
         const list = listRef.current
         if (!list) return
@@ -699,7 +810,26 @@ window.__ModuleLoader__.load({
         },
         h(
           'div',
-          { style: styles.panel, role: 'dialog', 'aria-modal': 'true', 'aria-label': TEXT.title },
+          {
+            style: position
+              ? { ...styles.panel, position: 'fixed', left: position.x, top: position.y, margin: 0 }
+              : styles.panel,
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-label': TEXT.title,
+          },
+          h(
+            'div',
+            {
+              style: styles.dragBar,
+              title: TEXT.dragHint,
+              onPointerDown: startDrag,
+              onDoubleClick: resetPosition,
+            },
+            h('span', { style: styles.dragDots }, '⠿'),
+            h('span', { style: styles.dragTitle }, 'KBar'),
+            h('span', { style: styles.dragHint }, TEXT.dragHint),
+          ),
           h(
             'div',
             { style: styles.header },
