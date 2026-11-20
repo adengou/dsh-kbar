@@ -16,6 +16,10 @@ window.__ModuleLoader__.load({
           sessionTag: '会话',
           actionTag: '动作',
           commandTag: '命令',
+          modelTag: '模型',
+          pluginTag: '插件',
+          slashTag: '命令',
+          skillTag: '技能',
           newSession: '新建会话',
           pluginsPage: '打开插件页',
           hintNavigate: '↑↓ 选择',
@@ -32,6 +36,10 @@ window.__ModuleLoader__.load({
           sessionTag: 'session',
           actionTag: 'action',
           commandTag: 'command',
+          modelTag: 'model',
+          pluginTag: 'plugin',
+          slashTag: 'command',
+          skillTag: 'skill',
           newSession: 'New session',
           pluginsPage: 'Open the plugins page',
           hintNavigate: '↑↓ select',
@@ -39,6 +47,25 @@ window.__ModuleLoader__.load({
           hintClose: 'Esc close',
           results: '{n} results',
         }
+
+    function kindLabel(kind) {
+      switch (kind) {
+        case 'session':
+          return TEXT.sessionTag
+        case 'command':
+          return TEXT.commandTag
+        case 'model':
+          return TEXT.modelTag
+        case 'plugin':
+          return TEXT.pluginTag
+        case 'slash':
+          return TEXT.slashTag
+        case 'skill':
+          return TEXT.skillTag
+        default:
+          return TEXT.actionTag
+      }
+    }
 
     const IS_MAC = (() => {
       try {
@@ -75,6 +102,8 @@ window.__ModuleLoader__.load({
       let state = { open: false, query: '', index: 0, rows: [] }
       let models = []
       let plugins = null
+      let slashCommands = []
+      let skills = []
       let loading = false
       const listeners = new Set()
       let lastFocus = null
@@ -255,6 +284,64 @@ window.__ModuleLoader__.load({
         if (state.open) refreshRows()
       }
 
+      async function loadSlashCommands() {
+        const row = currentSession()
+        if (!row) return
+        try {
+          const result = await ctx.remote.commands.list(row.id)
+          if (!result || !result.ok || !Array.isArray(result.value)) return
+          slashCommands = result.value.map((command) => ({
+            kind: 'slash',
+            id: 'slash:' + command.name,
+            title: '/' + command.name,
+            secondary: String(command.description || (command.input && command.input.hint) || ''),
+            keywords: String(command.description || '') + ' 命令 command 斜杠 slash',
+            updatedAt: 0,
+            run: () => {
+              const pending = ctx.remote.commands.execute(row.id, '/' + command.name, [])
+              if (pending && typeof pending.then === 'function') {
+                return pending.then((outcome) => {
+                  if (!outcome || outcome.ok !== true) {
+                    throw new Error((outcome && outcome.error && outcome.error.message) || 'command execution failed')
+                  }
+                })
+              }
+              return undefined
+            },
+          }))
+          if (state.open) refreshRows()
+        } catch {
+          /* command catalog unavailable */
+        }
+      }
+
+      async function loadSkills() {
+        const row = currentSession()
+        if (!row) return
+        try {
+          const result = await ctx.remote.skills.list({ sessionId: row.id })
+          if (!result || !result.ok || !result.value || !Array.isArray(result.value.skills)) return
+          skills = result.value.skills.map((skill) => ({
+            kind: 'skill',
+            id: 'skill:' + skill.name,
+            title: '/' + skill.name,
+            secondary: String(skill.description || '') + ' · 复制调用命令',
+            keywords: String(skill.description || '') + ' 技能 skill 斜杠 slash',
+            updatedAt: 0,
+            run: () => {
+              const text = '/' + skill.name
+              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                return navigator.clipboard.writeText(text)
+              }
+              return undefined
+            },
+          }))
+          if (state.open) refreshRows()
+        } catch {
+          /* skill catalog unavailable */
+        }
+      }
+
       function compute() {
         const query = state.query.trim().toLowerCase()
         const actions = actionItems()
@@ -265,12 +352,14 @@ window.__ModuleLoader__.load({
         if (!query) {
           return actions
             .concat(models.slice(0, 6))
-            .concat(commands.slice(0, 8))
+            .concat(slashCommands.slice(0, 8))
+            .concat(skills.slice(0, 8))
+            .concat(commands.slice(0, 6))
             .concat(sessions.slice(0, 8))
             .concat((plugins || []).slice(0, 8))
         }
         const scored = []
-        for (const item of actions.concat(models, commands, sessions, plugins || [])) {
+        for (const item of actions.concat(models, slashCommands, skills, commands, sessions, plugins || [])) {
           const value = score(query, item)
           if (value > 0) scored.push({ item, value: value + boost(item) })
         }
@@ -302,6 +391,8 @@ window.__ModuleLoader__.load({
           set({ open: true, query: '', index: 0, rows: compute() })
           loadModels()
           loadPlugins()
+          loadSlashCommands()
+          loadSkills()
         },
         close() {
           if (!state.open || closing) return
@@ -589,7 +680,7 @@ window.__ModuleLoader__.load({
                       h('div', { style: styles.rowTitle }, item.title),
                       item.secondary ? h('div', { style: styles.rowSecondary }, item.secondary) : null,
                     ),
-                    h('span', { style: styles.badge }, item.kind === 'session' ? TEXT.sessionTag : item.kind === 'command' ? TEXT.commandTag : TEXT.actionTag),
+                    h('span', { style: styles.badge }, kindLabel(item.kind)),
                   ),
                 ),
           ),
