@@ -73,6 +73,9 @@ window.__ModuleLoader__.load({
 
     function createStore(ctx) {
       let state = { open: false, query: '', index: 0, rows: [] }
+      let models = []
+      let plugins = null
+      let loading = false
       const listeners = new Set()
       let lastFocus = null
       let closing = false
@@ -183,6 +186,75 @@ window.__ModuleLoader__.load({
         }
       }
 
+      function currentSession() {
+        try {
+          const rows = Object.values(ctx.sessions.list.getSnapshot().byId || {})
+          return rows.find((row) => row && row.retainedBy && (row.retainedBy.mainView || 0) > 0) || null
+        } catch {
+          return null
+        }
+      }
+
+      async function loadModels() {
+        const row = currentSession()
+        const directories = ctx.get ? ctx.get('modelDirectories') : undefined
+        if (!row || !directories) return
+        try {
+          const directory = directories.directoryFor(row.id)
+          await directory.load()
+          const snapshot = directory.store.getSnapshot()
+          const items = []
+          for (const group of snapshot.groups || []) {
+            for (const model of group.models || []) {
+              const effort = model.reasoning && model.reasoning.defaultEffort
+              items.push({
+                kind: 'model',
+                id: 'model:' + group.id + ':' + model.id,
+                title: String(model.name || model.label || model.id),
+                secondary: String(group.name || group.id),
+                keywords: String(group.id) + ' ' + String(model.id) + ' 模型 model',
+                updatedAt: 0,
+                run: () => {
+                  const selection = { provider: group.id, model: model.id }
+                  if (effort !== undefined) selection.reasoningEffort = effort
+                  return directory.select(selection)
+                },
+              })
+            }
+          }
+          models = items
+          if (state.open) refreshRows()
+        } catch {
+          /* models unavailable for this session */
+        }
+      }
+
+      async function loadPlugins() {
+        if (plugins !== null || loading) return
+        loading = true
+        try {
+          const result = await ctx.remote.pluginManager.listBundles()
+          if (result && result.ok && Array.isArray(result.value)) {
+            plugins = result.value
+              .filter((bundle) => bundle && bundle.name)
+              .map((bundle) => ({
+                kind: 'plugin',
+                id: 'plugin:' + bundle.name,
+                title: String(bundle.displayName || bundle.name),
+                secondary: bundle.version ? 'v' + bundle.version : '',
+                keywords: String(bundle.name) + ' ' + String(bundle.description || '') + ' 插件 plugin',
+                updatedAt: 0,
+                run: () => ctx.pluginNavigation.openBundle(bundle.name),
+              }))
+          }
+        } catch {
+          /* plugin manager unavailable */
+        } finally {
+          loading = false
+        }
+        if (state.open) refreshRows()
+      }
+
       function compute() {
         const query = state.query.trim().toLowerCase()
         const actions = actionItems()
@@ -191,12 +263,14 @@ window.__ModuleLoader__.load({
         const recent = readRecent()
         const boost = (item) => (recent.includes(item.id) ? 15 : 0)
         if (!query) {
-          const rest = commands.concat(sessions).map((item, order) => ({ item, order, boost: boost(item) }))
-          rest.sort((a, b) => b.boost - a.boost || b.item.updatedAt - a.item.updatedAt || a.order - b.order)
-          return actions.concat(rest.slice(0, 20).map((entry) => entry.item))
+          return actions
+            .concat(models.slice(0, 6))
+            .concat(commands.slice(0, 8))
+            .concat(sessions.slice(0, 8))
+            .concat((plugins || []).slice(0, 8))
         }
         const scored = []
-        for (const item of actions.concat(commands, sessions)) {
+        for (const item of actions.concat(models, commands, sessions, plugins || [])) {
           const value = score(query, item)
           if (value > 0) scored.push({ item, value: value + boost(item) })
         }
@@ -207,6 +281,12 @@ window.__ModuleLoader__.load({
       function set(patch) {
         state = Object.assign({}, state, patch)
         emit()
+      }
+
+      function refreshRows() {
+        if (!state.open) return
+        const rows = compute()
+        set({ rows, index: Math.min(state.index, Math.max(0, rows.length - 1)) })
       }
 
       return {
@@ -220,6 +300,8 @@ window.__ModuleLoader__.load({
             lastFocus = null
           }
           set({ open: true, query: '', index: 0, rows: compute() })
+          loadModels()
+          loadPlugins()
         },
         close() {
           if (!state.open || closing) return
@@ -263,17 +345,17 @@ window.__ModuleLoader__.load({
           const run = item.run
           setTimeout(() => {
             try {
-              run()
+              const result = run()
+              if (result && typeof result.then === 'function') {
+                result.catch((error) => console.error('[kbar] action failed', error))
+              }
             } catch (error) {
               console.error('[kbar] action failed', error)
             }
           }, 0)
         },
         refresh() {
-          if (state.open) {
-            const rows = compute()
-            set({ rows, index: Math.min(state.index, Math.max(0, rows.length - 1)) })
-          }
+          refreshRows()
         },
       }
     }

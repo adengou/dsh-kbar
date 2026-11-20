@@ -1,6 +1,6 @@
 {
   "name": "dsh-kbar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "KBar: a command palette for DeepSeek Harness — one shortcut to search sessions and run common actions.",
   "type": "module",
   "main": "index.js",

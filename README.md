@@ -3,7 +3,7 @@
 A command palette for DeepSeek Harness. One shortcut to search sessions and run common actions.
 
 - Default shortcut: `Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS.
-- Searches sessions by title and working directory, and runs any registered DSH shortcut command (new session, settings, sidebar, terminal, files, …).
+- Searches sessions by title and working directory, runs any registered DSH shortcut command, switches the session model, and opens any installed bundle's detail page from the palette.
 - `↑`/`↓` to select, `Enter` to run, `Esc` to close.
 
 > `Ctrl+K` is already DSH's own session search, so KBar uses `Ctrl+Shift+P` to avoid a shortcut conflict. Rebind it in Settings → Shortcuts if you prefer.
