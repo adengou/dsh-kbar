@@ -706,6 +706,8 @@ window.__ModuleLoader__.load({
       const [position, setPosition] = useState(() => readPosition())
       const positionRef = useRef(position)
       const dragRef = useRef(null)
+      const panelRef = useRef(null)
+      const backdropRef = useRef(null)
 
       const applyPosition = (next) => {
         positionRef.current = next
@@ -714,35 +716,67 @@ window.__ModuleLoader__.load({
 
       const startDrag = (event) => {
         if (event.button !== 0) return
-        const panel = event.currentTarget.parentElement
+        const panel = panelRef.current
         if (!panel) return
         const rect = panel.getBoundingClientRect()
-        dragRef.current = {
+        const drag = {
           offsetX: event.clientX - rect.left,
           offsetY: event.clientY - rect.top,
           width: rect.width,
+          baseX: rect.left,
+          baseY: rect.top,
+          next: { x: rect.left, y: rect.top },
         }
+        dragRef.current = drag
+        panel.style.position = 'fixed'
+        panel.style.left = drag.baseX + 'px'
+        panel.style.top = drag.baseY + 'px'
+        panel.style.margin = '0'
+        panel.style.transition = 'none'
+        panel.style.willChange = 'transform'
+        panel.style.backdropFilter = 'none'
+        if (backdropRef.current) backdropRef.current.style.backdropFilter = 'none'
+        document.body.style.userSelect = 'none'
+        document.body.style.cursor = 'grabbing'
         try {
           event.currentTarget.setPointerCapture(event.pointerId)
         } catch {
           /* pointer capture unavailable */
         }
         event.preventDefault()
+
+        let frame = 0
+        const paint = () => {
+          frame = 0
+          const current = dragRef.current
+          if (!current) return
+          panel.style.transform =
+            'translate3d(' + (current.next.x - drag.baseX) + 'px,' + (current.next.y - drag.baseY) + 'px,0)'
+        }
         const onMove = (moveEvent) => {
-          const drag = dragRef.current
-          if (!drag) return
+          if (dragRef.current !== drag) return
           const maxX = Math.max(8, window.innerWidth - drag.width - 8)
           const maxY = Math.max(8, window.innerHeight - 80)
-          applyPosition({
-            x: Math.min(Math.max(moveEvent.clientX - drag.offsetX, 8), maxX),
-            y: Math.min(Math.max(moveEvent.clientY - drag.offsetY, 8), maxY),
-          })
+          drag.next = {
+            x: Math.round(Math.min(Math.max(moveEvent.clientX - drag.offsetX, 8), maxX)),
+            y: Math.round(Math.min(Math.max(moveEvent.clientY - drag.offsetY, 8), maxY)),
+          }
+          if (frame === 0) frame = requestAnimationFrame(paint)
         }
         const onUp = () => {
           dragRef.current = null
           window.removeEventListener('pointermove', onMove)
           window.removeEventListener('pointerup', onUp)
-          writePosition(positionRef.current)
+          if (frame !== 0) cancelAnimationFrame(frame)
+          document.body.style.userSelect = ''
+          document.body.style.cursor = ''
+          panel.style.transform = ''
+          panel.style.willChange = ''
+          panel.style.transition = ''
+          panel.style.backdropFilter = ''
+          if (backdropRef.current) backdropRef.current.style.backdropFilter = ''
+          applyPosition(drag.next)
+          writePosition(drag.next)
         }
         window.addEventListener('pointermove', onMove)
         window.addEventListener('pointerup', onUp)
@@ -750,6 +784,11 @@ window.__ModuleLoader__.load({
 
       const resetPosition = () => {
         writePosition(null)
+        const panel = panelRef.current
+        if (panel) {
+          panel.style.transform = ''
+          panel.style.willChange = ''
+        }
         applyPosition(null)
       }
 
@@ -803,6 +842,7 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         {
+          ref: backdropRef,
           style: styles.backdrop,
           onMouseDown: (event) => {
             if (event.target === event.currentTarget) store.close()
@@ -811,6 +851,7 @@ window.__ModuleLoader__.load({
         h(
           'div',
           {
+            ref: panelRef,
             style: position
               ? { ...styles.panel, position: 'fixed', left: position.x, top: position.y, margin: 0 }
               : styles.panel,

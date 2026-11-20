@@ -30,6 +30,8 @@ const sandbox = {
   localStorage: { getItem: () => null, setItem: () => {} },
   setTimeout,
   clearTimeout,
+  requestAnimationFrame: (fn) => setTimeout(fn, 16),
+  cancelAnimationFrame: (id) => clearTimeout(id),
   AbortController,
   fetch: async () => ({
     ok: true,
