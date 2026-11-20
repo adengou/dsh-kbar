@@ -13,6 +13,7 @@ window.__ModuleLoader__.load({
           openLabel: '打开命令面板',
           placeholder: '搜索会话，或输入动作…',
           dragHint: '拖动移动，双击复位',
+          closeLabel: '关闭',
           empty: '没有匹配的结果',
           actionGroup: '动作',
           sessionTag: '会话',
@@ -34,6 +35,7 @@ window.__ModuleLoader__.load({
           openLabel: 'Open the command palette',
           placeholder: 'Search sessions or type an action…',
           dragHint: 'Drag to move, double-click to reset',
+          closeLabel: 'Close',
           empty: 'No matching results',
           actionGroup: 'Action',
           sessionTag: 'session',
@@ -588,6 +590,20 @@ window.__ModuleLoader__.load({
         fontSize: 10,
         opacity: 0.65,
       },
+      closeButton: {
+        marginLeft: 6,
+        width: 20,
+        height: 20,
+        padding: 0,
+        border: 'none',
+        borderRadius: 4,
+        background: 'transparent',
+        color: 'inherit',
+        font: 'inherit',
+        fontSize: 15,
+        lineHeight: 1,
+        cursor: 'pointer',
+      },
       input: {
         flex: 1,
         minWidth: 0,
@@ -905,6 +921,22 @@ window.__ModuleLoader__.load({
             h('span', { style: styles.dragDots }, '⠿'),
             h('span', { style: styles.dragTitle }, 'KBar'),
             h('span', { style: styles.dragHint }, TEXT.dragHint),
+            h(
+              'button',
+              {
+                type: 'button',
+                title: TEXT.closeLabel,
+                'aria-label': TEXT.closeLabel,
+                style: styles.closeButton,
+                onPointerDown: (event) => event.stopPropagation(),
+                onDoubleClick: (event) => event.stopPropagation(),
+                onClick: (event) => {
+                  event.stopPropagation()
+                  store.close()
+                },
+              },
+              '×',
+            ),
           ),
           h(
             'div',
