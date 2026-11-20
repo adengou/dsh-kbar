@@ -359,14 +359,19 @@ window.__ModuleLoader__.load({
         const sessions = sessionItems()
         const recent = readRecent()
         const boost = (item) => (recent.includes(item.id) ? 15 : 0)
+        const byRecent = (list) =>
+          list
+            .map((item, order) => ({ item, order, boost: boost(item) }))
+            .sort((a, b) => b.boost - a.boost || a.order - b.order)
+            .map((entry) => entry.item)
         if (!query) {
           return actions
-            .concat(models.slice(0, 6))
-            .concat(slashCommands.slice(0, 8))
-            .concat(skills.slice(0, 8))
-            .concat(commands.slice(0, 6))
-            .concat(sessions.slice(0, 8))
-            .concat((plugins || []).slice(0, 8))
+            .concat(byRecent(models).slice(0, 6))
+            .concat(byRecent(slashCommands).slice(0, 8))
+            .concat(byRecent(skills).slice(0, 8))
+            .concat(byRecent(commands).slice(0, 6))
+            .concat(byRecent(sessions).slice(0, 8))
+            .concat(byRecent(plugins || []).slice(0, 8))
         }
         const scored = []
         for (const item of actions.concat(models, slashCommands, skills, commands, sessions, plugins || [])) {

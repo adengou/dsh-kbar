@@ -22,3 +22,5 @@ jobs:
           node -e "for (const f of ['package.json','locale/en.json','locale/zh.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))"
       - name: Validate patch YAML
         run: node -e "const y=require('fs').readFileSync('cordis.patch.yml','utf8'); if(!y.includes('id: kbar')) process.exit(1)"
+      - name: Smoke test
+        run: node test/smoke.mjs
