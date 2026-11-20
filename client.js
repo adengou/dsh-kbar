@@ -161,7 +161,7 @@ window.__ModuleLoader__.load({
             kind: 'action',
             id: 'action:new-session',
             title: TEXT.newSession,
-            secondary: TEXT.actionGroup,
+            secondary: '',
             keywords: 'new session new chat 新建 新会话 聊天',
             updatedAt: 0,
             run: () => ctx.uiWorkspace.startSession(),
@@ -170,7 +170,7 @@ window.__ModuleLoader__.load({
             kind: 'action',
             id: 'action:plugins',
             title: TEXT.pluginsPage,
-            secondary: TEXT.actionGroup,
+            secondary: '',
             keywords: 'plugins plugin manager 插件 管理 市场',
             updatedAt: 0,
             run: () => ctx.layout.selectPanel('plugins'),
@@ -374,7 +374,11 @@ window.__ModuleLoader__.load({
             .concat(byRecent(plugins || []).slice(0, 8))
         }
         const scored = []
-        for (const item of actions.concat(models, slashCommands, skills, commands, sessions, plugins || [])) {
+        const slashOnly = query.startsWith('/')
+        const pool = slashOnly
+          ? slashCommands.concat(skills)
+          : actions.concat(models, slashCommands, skills, commands, sessions, plugins || [])
+        for (const item of pool) {
           const value = score(query, item)
           if (value > 0) scored.push({ item, value: value + boost(item) })
         }
@@ -475,8 +479,8 @@ window.__ModuleLoader__.load({
         alignItems: 'flex-start',
         justifyContent: 'center',
         paddingTop: '12vh',
-        background: 'var(--dsw-alias-bg-mask-2, rgba(0, 0, 0, 0.35))',
-        backdropFilter: 'blur(2px)',
+        background: 'rgba(8, 14, 28, 0.32)',
+        backdropFilter: 'blur(3px)',
       },
       panel: {
         width: 'min(680px, 92vw)',
@@ -487,8 +491,9 @@ window.__ModuleLoader__.load({
         borderRadius: 14,
         border: '1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.22))',
         background: 'var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-base, #ffffff))',
+        backdropFilter: 'blur(18px) saturate(1.15)',
         color: 'var(--dsw-alias-label-primary, inherit)',
-        boxShadow: '0 24px 64px rgba(0, 0, 0, 0.28)',
+        boxShadow: '0 24px 64px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.06)',
         fontFamily: 'inherit',
       },
       header: {
@@ -528,7 +533,7 @@ window.__ModuleLoader__.load({
         borderRadius: 8,
         cursor: 'pointer',
         background: selected
-          ? 'var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.14))'
+          ? 'var(--dsw-alias-interactive-bg-hover-accent, var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.16)))'
           : 'transparent',
       }),
       rowMain: {
@@ -712,7 +717,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout'],
+      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'remote.skills', 'remote.pluginManager', 'pluginNavigation'],
       apply(ctx) {
         const store = createStore(ctx)
 
@@ -742,7 +747,6 @@ window.__ModuleLoader__.load({
                 'desktop:linux': { code: 'KeyP', modifiers: ['primary', 'shift'] },
                 'web:macos': { code: 'KeyP', modifiers: ['primary', 'shift'] },
                 'web:windows': { code: 'KeyP', modifiers: ['primary', 'shift'] },
-                'web:linux': { code: 'KeyP', modifiers: ['primary', 'shift'] },
               },
               regions: ['page', 'editable'],
               modals: [],

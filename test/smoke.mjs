@@ -48,7 +48,7 @@ const mod = factory((name) => {
   if (name === 'react') return React
   throw new Error('unexpected require: ' + name)
 })
-assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout')
+assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,remote.skills,remote.pluginManager,pluginNavigation')
 
 const calls = { executed: [], selected: [], openedBundle: null, invoked: null, openedSession: null }
 const directory = {
@@ -102,6 +102,7 @@ const ctx = {
 mod.apply(ctx)
 assert.equal(calls.shortcut.id, 'kbar.open')
 assert.equal(JSON.stringify(calls.shortcut.defaults['desktop:windows']), JSON.stringify({ code: 'KeyP', modifiers: ['primary', 'shift'] }))
+assert.equal(calls.shortcut.defaults['web:linux'], undefined, 'web:linux has no admitted default')
 assert.equal(calls.slot.name, 'shell.overlay')
 
 const store = calls.slot.inject().kbar
@@ -120,6 +121,12 @@ assert.equal(store.getSnapshot().rows.map((row) => row.kind).join(','), 'command
 store.run(0)
 await wait(40)
 assert.equal(calls.invoked, 'app.terminal')
+
+store.open()
+await wait()
+store.setQuery('/')
+const slashKinds = store.getSnapshot().rows.map((row) => row.kind)
+assert.ok(slashKinds.length > 0 && slashKinds.every((kind) => kind === 'slash' || kind === 'skill'), 'slash query lists only slash commands and skills')
 
 store.open()
 await wait()
