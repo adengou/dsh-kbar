@@ -323,23 +323,50 @@ window.__ModuleLoader__.load({
         }
       }
 
-      async function loadPlugins() {
-        if (plugins !== null || loading) return
+      let loadedCwd = null
+
+      function currentCwd() {
+        const row = currentSession()
+        return row && typeof row.cwd === 'string' ? row.cwd : undefined
+      }
+
+      async function loadPlugins(force = false) {
+        const cwd = currentCwd()
+        const marker = cwd || null
+        if (loading) return
+        if (!force && plugins !== null && loadedCwd === marker) return
         loading = true
         try {
-          const payload = await fetchJson('/api/kbar/catalog', 20000)
-          if (payload && payload.ok && Array.isArray(payload.plugins)) {
-            plugins = payload.plugins
-              .filter((bundle) => bundle && typeof bundle.name === 'string')
-              .map((bundle) => ({
-                kind: 'plugin',
-                id: 'plugin:' + bundle.name,
-                title: String(bundle.title || bundle.name),
-                secondary: bundle.version ? 'v' + bundle.version : '',
-                keywords: String(bundle.name) + ' ' + String(bundle.description || '') + ' 插件 plugin',
-                updatedAt: 0,
-                run: () => ctx.pluginNavigation.openBundle(bundle.name),
-              }))
+          const suffix = cwd ? '?cwd=' + encodeURIComponent(cwd) : ''
+          const payload = await fetchJson('/api/kbar/catalog' + suffix, 20000)
+          if (payload && payload.ok) {
+            if (Array.isArray(payload.plugins)) {
+              plugins = payload.plugins
+                .filter((bundle) => bundle && typeof bundle.name === 'string')
+                .map((bundle) => ({
+                  kind: 'plugin',
+                  id: 'plugin:' + bundle.name,
+                  title: String(bundle.title || bundle.name),
+                  secondary: bundle.version ? 'v' + bundle.version : '',
+                  keywords: String(bundle.name) + ' ' + String(bundle.description || '') + ' 插件 plugin',
+                  updatedAt: 0,
+                  run: () => ctx.pluginNavigation.openBundle(bundle.name),
+                }))
+            }
+            if (Array.isArray(payload.skills)) {
+              skills = payload.skills
+                .filter((skill) => skill && typeof skill.name === 'string')
+                .map((skill) => ({
+                  kind: 'skill',
+                  id: 'skill:' + skill.name,
+                  title: '/' + skill.name,
+                  secondary: String(skill.description || skill.provider || '') + ' · 复制调用命令',
+                  keywords: String(skill.description || '') + ' ' + String(skill.provider || '') + ' 技能 skill 斜杠 slash',
+                  updatedAt: 0,
+                  run: () => copyText('/' + skill.name),
+                }))
+            }
+            loadedCwd = marker
           }
         } catch {
           /* catalog route unavailable */
@@ -377,25 +404,6 @@ window.__ModuleLoader__.load({
           if (state.open) refreshRows()
         } catch {
           /* command catalog unavailable */
-        }
-      }
-
-      async function loadSkills() {
-        try {
-          const result = await withSession((row) => ctx.remote.skills.list({ sessionId: row.id }))
-          if (!result || !result.ok || !result.value || !Array.isArray(result.value.skills)) return
-          skills = result.value.skills.map((skill) => ({
-            kind: 'skill',
-            id: 'skill:' + skill.name,
-            title: '/' + skill.name,
-            secondary: String(skill.description || '') + ' · 复制调用命令',
-            keywords: String(skill.description || '') + ' 技能 skill 斜杠 slash',
-            updatedAt: 0,
-            run: () => copyText('/' + skill.name),
-          }))
-          if (state.open) refreshRows()
-        } catch {
-          /* skill catalog unavailable */
         }
       }
 
@@ -459,7 +467,6 @@ window.__ModuleLoader__.load({
           loadModels()
           loadPlugins()
           loadSlashCommands()
-          loadSkills()
         },
         close() {
           if (!state.open || closing) return
@@ -765,7 +772,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'remote.skills', 'pluginNavigation'],
+      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'pluginNavigation'],
       apply(ctx) {
         const store = createStore(ctx)
 

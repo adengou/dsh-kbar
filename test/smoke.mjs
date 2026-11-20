@@ -36,6 +36,7 @@ const sandbox = {
     json: async () => ({
       ok: true,
       plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+      skills: [{ name: 'office', description: 'Office documents', provider: 'filesystem' }],
     }),
   }),
   XMLHttpRequest: class {
@@ -47,6 +48,7 @@ const sandbox = {
         this.responseText = JSON.stringify({
           ok: true,
           plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+      skills: [{ name: 'office', description: 'Office documents', provider: 'filesystem' }],
         })
         if (this.onload) this.onload()
       }, 0)
@@ -70,7 +72,7 @@ const mod = factory((name) => {
   if (name === 'react') return React
   throw new Error('unexpected require: ' + name)
 })
-assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,remote.skills,pluginNavigation')
+assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,pluginNavigation')
 
 const calls = { executed: [], selected: [], openedBundle: null, invoked: null, openedSession: null }
 const directory = {
