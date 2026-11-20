@@ -98,6 +98,17 @@ window.__ModuleLoader__.load({
       return 50 - Math.min(40, gaps)
     }
 
+    function copyText(text) {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          return navigator.clipboard.writeText(text)
+        }
+      } catch {
+        /* clipboard unavailable */
+      }
+      return undefined
+    }
+
     function createStore(ctx) {
       let state = { open: false, query: '', index: 0, rows: [] }
       let models = []
@@ -290,25 +301,30 @@ window.__ModuleLoader__.load({
         try {
           const result = await ctx.remote.commands.list(row.id)
           if (!result || !result.ok || !Array.isArray(result.value)) return
-          slashCommands = result.value.map((command) => ({
-            kind: 'slash',
-            id: 'slash:' + command.name,
-            title: '/' + command.name,
-            secondary: String(command.description || (command.input && command.input.hint) || ''),
-            keywords: String(command.description || '') + ' 命令 command 斜杠 slash',
-            updatedAt: 0,
-            run: () => {
-              const pending = ctx.remote.commands.execute(row.id, '/' + command.name, [])
-              if (pending && typeof pending.then === 'function') {
-                return pending.then((outcome) => {
-                  if (!outcome || outcome.ok !== true) {
-                    throw new Error((outcome && outcome.error && outcome.error.message) || 'command execution failed')
-                  }
-                })
-              }
-              return undefined
-            },
-          }))
+          slashCommands = result.value.map((command) => {
+            const needsInput = command.input !== undefined
+            const hint = needsInput ? String((command.input && command.input.hint) || '') : ''
+            return {
+              kind: 'slash',
+              id: 'slash:' + command.name,
+              title: '/' + command.name,
+              secondary: String(command.description || hint || '') + (needsInput ? ' · 需要参数，选中复制' : ''),
+              keywords: String(command.description || '') + ' ' + hint + ' 命令 command 斜杠 slash',
+              updatedAt: 0,
+              run: () => {
+                if (needsInput) return copyText('/' + command.name + ' ')
+                const pending = ctx.remote.commands.execute(row.id, '/' + command.name, [])
+                if (pending && typeof pending.then === 'function') {
+                  return pending.then((outcome) => {
+                    if (!outcome || outcome.ok !== true) {
+                      throw new Error((outcome && outcome.error && outcome.error.message) || 'command execution failed')
+                    }
+                  })
+                }
+                return undefined
+              },
+            }
+          })
           if (state.open) refreshRows()
         } catch {
           /* command catalog unavailable */
@@ -328,13 +344,7 @@ window.__ModuleLoader__.load({
             secondary: String(skill.description || '') + ' · 复制调用命令',
             keywords: String(skill.description || '') + ' 技能 skill 斜杠 slash',
             updatedAt: 0,
-            run: () => {
-              const text = '/' + skill.name
-              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                return navigator.clipboard.writeText(text)
-              }
-              return undefined
-            },
+            run: () => copyText('/' + skill.name),
           }))
           if (state.open) refreshRows()
         } catch {

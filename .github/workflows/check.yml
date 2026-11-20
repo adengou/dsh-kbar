@@ -1,0 +1,24 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check client.js
+          node --check index.js
+      - name: Validate manifests and locales
+        run: |
+          node -e "for (const f of ['package.json','locale/en.json','locale/zh.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))"
+      - name: Validate patch YAML
+        run: node -e "const y=require('fs').readFileSync('cordis.patch.yml','utf8'); if(!y.includes('id: kbar')) process.exit(1)"
