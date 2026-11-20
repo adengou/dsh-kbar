@@ -1,3 +1,4 @@
+/*! dsh-kbar | MIT License | Copyright (c) 2026 adengou */
 /**
  * Host half of KBar: exposes the profile's bundle catalog to the palette.
  * The palette itself lives in the browser.

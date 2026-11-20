@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "KBar 命令面板",
-    "description": "一个快捷键打开命令面板：搜索并跳转到任意会话，或执行新建会话、打开插件页等动作。",
+    "description": "按 Ctrl+Shift+P 打开，搜索会话、模型、插件、技能和快捷键命令，回车执行。",
     "detail": "docs/DETAIL.md"
   }
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "KBar command palette",
-    "description": "One shortcut opens a command palette that searches sessions and runs common actions such as New session or Open the plugins page.",
+    "description": "Opens with Ctrl+Shift+P. Search sessions, models, plugins, skills and shortcut commands, then press Enter.",
     "detail": "docs/DETAIL.md"
   }
 }

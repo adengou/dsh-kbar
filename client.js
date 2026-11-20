@@ -1,3 +1,4 @@
+/*! dsh-kbar | MIT License | Copyright (c) 2026 adengou */
 window.__ModuleLoader__.load({
   id: 'dsh-kbar',
   factory(require) {

@@ -1,14 +1,23 @@
 # dsh-kbar
 
-A command palette for DeepSeek Harness. One shortcut to search sessions and run common actions.
+DSH 的命令面板。按 `Ctrl+Shift+P`（macOS `Cmd+Shift+P`）打开，输入关键字，回车执行。
 
-- Default shortcut: `Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS.
-- Searches sessions, slash commands, skills, models and installed bundles, and runs any registered DSH shortcut command from one palette.
-- `↑`/`↓` to select, `Enter` to run, `Esc` to close.
+## 能做什么
 
-> `Ctrl+K` is already DSH's own session search, so KBar uses `Ctrl+Shift+P` to avoid a shortcut conflict. Rebind it in Settings → Shortcuts if you prefer.
+| 输入 | 结果 | 回车后 |
+| --- | --- | --- |
+| 会话标题里的词 | 匹配的会话 | 打开该会话 |
+| `flash`、`pro` | 当前会话可用的模型 | 切换模型 |
+| 插件名的一部分 | 已安装的插件 | 打开插件详情页 |
+| 技能名的一部分 | 当前工作区的技能 | 复制 `/技能名` |
+| `新建`、`插件` | 内置动作 | 新建会话 / 打开插件页 |
+| 命令名的一部分 | DSH 快捷键命令 | 执行该命令 |
 
-## Install
+`↑`/`↓` 选择，`Enter` 执行，`Esc` 关闭。
+
+`Ctrl+K` 是 DSH 自带的会话搜索，所以这里用 `Ctrl+Shift+P`。想换键位：设置 → 快捷键。
+
+## 安装
 
 ```sh
 # npm
@@ -17,12 +26,12 @@ dsh plugin --profile web add dsh-kbar
 # GitHub
 dsh plugin --profile web add "git+https://github.com/adengou/dsh-kbar.git"
 
-# Gitee mirror
+# Gitee
 dsh plugin --profile web add "git+https://gitee.com/adengou/dsh-kbar.git"
 ```
 
-DSH Desktop manages its own profile in the app: install it from **Settings → Plugins**.
+DSH 桌面版在 设置 → 插件 里安装。
 
-## License
+## 许可
 
-MIT
+MIT License，版权归 adengou。完整文本见 [LICENSE](LICENSE)。
