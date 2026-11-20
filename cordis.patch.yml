@@ -1,0 +1,4 @@
+- insert:
+    - id: kbar
+      name: dsh-kbar
+      config: {}

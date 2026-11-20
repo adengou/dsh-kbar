@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "KBar command palette",
+    "description": "One shortcut opens a command palette that searches sessions and runs common actions such as New session or Open the plugins page.",
+    "detail": "docs/DETAIL.md"
+  }
+}
