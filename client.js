@@ -235,6 +235,60 @@ window.__ModuleLoader__.load({
         }
       }
 
+      function withTimeout(promise, ms = 6000) {
+        return Promise.race([
+          promise,
+          new Promise((_resolve, reject) => setTimeout(() => reject(new Error('remote call timed out')), ms)),
+        ])
+      }
+
+      async function withSession(fn) {
+        const row = currentSession()
+        if (!row) return undefined
+        const run = async () => {
+          if (ctx.sessions && typeof ctx.sessions.using === 'function') {
+            return ctx.sessions.using(row.id, { source: 'kbar' }, async (reference) => {
+              const state = reference.binding.session.getSnapshot()
+              if (state.openState !== 'open') throw state.openError || new Error('session not open')
+              return fn(row)
+            })
+          }
+          return fn(row)
+        }
+        try {
+          return await withTimeout(Promise.resolve(run()))
+        } catch {
+          return undefined
+        }
+      }
+
+      function fetchJson(url, timeoutMs = 20000) {
+        return new Promise((resolve, reject) => {
+          try {
+            const xhr = new XMLHttpRequest()
+            xhr.open('GET', url, true)
+            xhr.setRequestHeader('accept', 'application/json')
+            xhr.timeout = timeoutMs
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  resolve(JSON.parse(xhr.responseText))
+                } catch (error) {
+                  reject(error)
+                }
+              } else {
+                reject(new Error('catalog status ' + xhr.status))
+              }
+            }
+            xhr.onerror = () => reject(new Error('catalog network error'))
+            xhr.ontimeout = () => reject(new Error('catalog timeout'))
+            xhr.send()
+          } catch (error) {
+            reject(error)
+          }
+        })
+      }
+
       async function loadModels() {
         const row = currentSession()
         const directories = ctx.get ? ctx.get('modelDirectories') : undefined
@@ -273,14 +327,14 @@ window.__ModuleLoader__.load({
         if (plugins !== null || loading) return
         loading = true
         try {
-          const result = await ctx.remote.pluginManager.listBundles()
-          if (result && result.ok && Array.isArray(result.value)) {
-            plugins = result.value
-              .filter((bundle) => bundle && bundle.name)
+          const payload = await fetchJson('/api/kbar/catalog', 20000)
+          if (payload && payload.ok && Array.isArray(payload.plugins)) {
+            plugins = payload.plugins
+              .filter((bundle) => bundle && typeof bundle.name === 'string')
               .map((bundle) => ({
                 kind: 'plugin',
                 id: 'plugin:' + bundle.name,
-                title: String(bundle.displayName || bundle.name),
+                title: String(bundle.title || bundle.name),
                 secondary: bundle.version ? 'v' + bundle.version : '',
                 keywords: String(bundle.name) + ' ' + String(bundle.description || '') + ' 插件 plugin',
                 updatedAt: 0,
@@ -288,7 +342,7 @@ window.__ModuleLoader__.load({
               }))
           }
         } catch {
-          /* plugin manager unavailable */
+          /* catalog route unavailable */
         } finally {
           loading = false
         }
@@ -296,10 +350,8 @@ window.__ModuleLoader__.load({
       }
 
       async function loadSlashCommands() {
-        const row = currentSession()
-        if (!row) return
         try {
-          const result = await ctx.remote.commands.list(row.id)
+          const result = await withSession((row) => ctx.remote.commands.list(row.id))
           if (!result || !result.ok || !Array.isArray(result.value)) return
           slashCommands = result.value.map((command) => {
             const needsInput = command.input !== undefined
@@ -313,15 +365,12 @@ window.__ModuleLoader__.load({
               updatedAt: 0,
               run: () => {
                 if (needsInput) return copyText('/' + command.name + ' ')
-                const pending = ctx.remote.commands.execute(row.id, '/' + command.name, [])
-                if (pending && typeof pending.then === 'function') {
-                  return pending.then((outcome) => {
-                    if (!outcome || outcome.ok !== true) {
-                      throw new Error((outcome && outcome.error && outcome.error.message) || 'command execution failed')
-                    }
-                  })
-                }
-                return undefined
+                return withSession((row) => ctx.remote.commands.execute(row.id, '/' + command.name, [])).then((outcome) => {
+                  if (outcome === undefined) throw new Error('command execution unavailable')
+                  if (outcome.ok !== true) {
+                    throw new Error((outcome.error && outcome.error.message) || 'command execution failed')
+                  }
+                })
               },
             }
           })
@@ -332,10 +381,8 @@ window.__ModuleLoader__.load({
       }
 
       async function loadSkills() {
-        const row = currentSession()
-        if (!row) return
         try {
-          const result = await ctx.remote.skills.list({ sessionId: row.id })
+          const result = await withSession((row) => ctx.remote.skills.list({ sessionId: row.id }))
           if (!result || !result.ok || !result.value || !Array.isArray(result.value.skills)) return
           skills = result.value.skills.map((skill) => ({
             kind: 'skill',
@@ -400,6 +447,7 @@ window.__ModuleLoader__.load({
       return {
         subscribe,
         getSnapshot: snapshot,
+        loadPlugins,
         open() {
           if (state.open) return
           try {
@@ -717,7 +765,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'remote.skills', 'remote.pluginManager', 'pluginNavigation'],
+      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'remote.skills', 'pluginNavigation'],
       apply(ctx) {
         const store = createStore(ctx)
 
@@ -761,6 +809,8 @@ window.__ModuleLoader__.load({
             KBar,
           ),
         )
+
+        store.loadPlugins()
       },
     }
   },

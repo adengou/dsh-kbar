@@ -30,6 +30,28 @@ const sandbox = {
   localStorage: { getItem: () => null, setItem: () => {} },
   setTimeout,
   clearTimeout,
+  AbortController,
+  fetch: async () => ({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+    }),
+  }),
+  XMLHttpRequest: class {
+    open() {}
+    setRequestHeader() {}
+    send() {
+      setTimeout(() => {
+        this.status = 200
+        this.responseText = JSON.stringify({
+          ok: true,
+          plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+        })
+        if (this.onload) this.onload()
+      }, 0)
+    }
+  },
   console,
   queueMicrotask,
 }
@@ -48,7 +70,7 @@ const mod = factory((name) => {
   if (name === 'react') return React
   throw new Error('unexpected require: ' + name)
 })
-assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,remote.skills,remote.pluginManager,pluginNavigation')
+assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,remote.skills,pluginNavigation')
 
 const calls = { executed: [], selected: [], openedBundle: null, invoked: null, openedSession: null }
 const directory = {
