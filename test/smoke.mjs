@@ -120,7 +120,7 @@ const ctx = {
   },
   slots: {
     inject: (_name, fn) => { fn() },
-    register: (options) => { calls.slot = options; return () => {} },
+    register: (options) => { calls.slots = calls.slots || []; calls.slots.push(options); return () => {} },
   },
   layout: { selectPanel: () => {} },
   uiWorkspace: { openSession: (id) => { calls.openedSession = id }, startSession: () => {} },
@@ -130,9 +130,10 @@ mod.apply(ctx)
 assert.equal(calls.shortcut.id, 'kbar.open')
 assert.equal(JSON.stringify(calls.shortcut.defaults['desktop:windows']), JSON.stringify({ code: 'KeyP', modifiers: ['primary', 'shift'] }))
 assert.equal(calls.shortcut.defaults['web:linux'], undefined, 'web:linux has no admitted default')
-assert.equal(calls.slot.name, 'shell.overlay')
+assert.ok(calls.slots.some((slot) => slot.name === 'shell.overlay'), 'overlay slot registered')
+assert.ok(calls.slots.some((slot) => slot.name === 'sidebar.footer.action'), 'sidebar action registered')
 
-const store = calls.slot.inject().kbar
+const store = calls.slots.find((slot) => slot.name === 'shell.overlay').inject().kbar
 calls.shortcut.resolve({}).run()
 
 const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms))

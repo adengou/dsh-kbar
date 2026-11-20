@@ -664,6 +664,41 @@ window.__ModuleLoader__.load({
       count: {
         marginLeft: 'auto',
       },
+      sidebarAction: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        width: '100%',
+        minWidth: 0,
+        padding: '6px 8px',
+        border: 'none',
+        borderRadius: 8,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-secondary, #808080)',
+        font: 'inherit',
+        fontSize: 12,
+        lineHeight: '18px',
+        textAlign: 'left',
+        cursor: 'pointer',
+      },
+      sidebarActionCompact: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 28,
+        height: 28,
+        padding: 0,
+        border: 'none',
+        borderRadius: 8,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-secondary, #808080)',
+        cursor: 'pointer',
+      },
+      sidebarLabel: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
     }
 
     function Glyph() {
@@ -943,6 +978,29 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function KBarSidebarButton(props) {
+      const wide = props.wide === true
+      return h(
+        'button',
+        {
+          type: 'button',
+          title: TEXT.openLabel + ' (' + OPEN_LABEL + ')',
+          'aria-label': TEXT.openLabel,
+          style: wide ? styles.sidebarAction : styles.sidebarActionCompact,
+          onClick: () => props.open(),
+          onMouseEnter: (event) => {
+            event.currentTarget.style.background =
+              'var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.12))'
+          },
+          onMouseLeave: (event) => {
+            event.currentTarget.style.background = 'transparent'
+          },
+        },
+        h('span', { style: { display: 'flex', flex: 'none' } }, h(Glyph)),
+        wide ? h('span', { style: styles.sidebarLabel }, TEXT.openLabel) : null,
+      )
+    }
+
     return {
       inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'pluginNavigation'],
       apply(ctx) {
@@ -988,6 +1046,17 @@ window.__ModuleLoader__.load({
             KBar,
           ),
         )
+
+        try {
+          ctx.slots.inject('sidebar.footer.action', () =>
+            ctx.slots.register(
+              { name: 'sidebar.footer.action', id: 'kbar', inject: () => ({ open: () => store.open() }) },
+              KBarSidebarButton,
+            ),
+          )
+        } catch {
+          /* older shell without the footer action slot */
+        }
 
         store.loadPlugins()
       },
