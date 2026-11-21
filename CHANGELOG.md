@@ -1,5 +1,9 @@
 # 更新记录
 
+## 0.6.9
+
+- 新增 `screenshots.json`，向插件市场声明详情页截图（`docs/screenshot.png`）。
+
 ## 0.6.8
 
 - npm 描述与关键词补充 DeepSeek Harness / launcher，方便搜索。
