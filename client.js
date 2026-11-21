@@ -311,15 +311,22 @@ window.__ModuleLoader__.load({
           const directory = directories.directoryFor(row.id)
           await directory.load()
           const snapshot = directory.store.getSnapshot()
+          const current = snapshot.current
           const items = []
           for (const group of snapshot.groups || []) {
             for (const model of group.models || []) {
               const effort = model.reasoning && model.reasoning.defaultEffort
+              const isCurrent =
+                current !== null &&
+                current !== undefined &&
+                current.provider === group.id &&
+                current.model === model.id
               items.push({
                 kind: 'model',
                 id: 'model:' + group.id + ':' + model.id,
                 title: String(model.name || model.label || model.id),
-                secondary: String(group.name || group.id),
+                secondary: String(group.name || group.id) + (isCurrent ? ' · 当前' : ''),
+                current: isCurrent,
                 keywords: String(group.id) + ' ' + String(model.id) + ' 模型 model',
                 updatedAt: 0,
                 run: () => {
@@ -330,7 +337,7 @@ window.__ModuleLoader__.load({
               })
             }
           }
-          models = items
+          models = items.sort((left, right) => Number(right.current) - Number(left.current))
           if (state.open) refreshRows()
         } catch {
           /* models unavailable for this session */

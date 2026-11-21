@@ -98,7 +98,7 @@ const directory = {
   store: {
     getSnapshot: () => ({
       groups: [{ id: 'deepseek', name: 'DeepSeek', models: [{ id: 'deepseek-flash', name: 'DeepSeek Flash', reasoning: { defaultEffort: 'max' } }] }],
-      current: null,
+      current: { provider: 'deepseek', model: 'deepseek-flash' },
     }),
   },
   select: (selection) => { calls.selected.push(selection) },
@@ -158,6 +158,10 @@ const kinds = new Set(store.getSnapshot().rows.map((row) => row.kind))
 for (const kind of ['action', 'session', 'command', 'model', 'plugin', 'slash', 'skill']) {
   assert.ok(kinds.has(kind), `rows include ${kind}`)
 }
+
+const currentModel = store.getSnapshot().rows.find((row) => row.id === 'model:deepseek:deepseek-flash')
+assert.ok(currentModel, 'current model row exists')
+assert.ok(currentModel.secondary.includes('当前'), 'current model is marked')
 
 store.setQuery('terminal')
 assert.equal(store.getSnapshot().rows.map((row) => row.kind).join(','), 'command')
