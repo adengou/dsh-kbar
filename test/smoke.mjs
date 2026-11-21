@@ -42,16 +42,28 @@ const sandbox = {
     }),
   }),
   XMLHttpRequest: class {
-    open() {}
+    open(method, url) {
+      this.method = method
+      this.url = url
+    }
     setRequestHeader() {}
-    send() {
+    send(body) {
       setTimeout(() => {
         this.status = 200
-        this.responseText = JSON.stringify({
-          ok: true,
-          plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
-      skills: [{ name: 'office', description: 'Office documents', provider: 'filesystem' }],
-        })
+        if (this.url && this.url.includes('/api/kbar/execute')) {
+          calls.executed.push(JSON.parse(body).line)
+          this.responseText = JSON.stringify({ ok: true, kind: 'success' })
+        } else {
+          this.responseText = JSON.stringify({
+            ok: true,
+            plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+            skills: [{ name: 'office', description: 'Office documents', provider: 'filesystem' }],
+            commands: [
+              { name: 'compact', description: 'Compact the conversation' },
+              { name: 'plan', description: 'Enter plan mode', input: { hint: '<message>' } },
+            ],
+          })
+        }
         if (this.onload) this.onload()
       }, 0)
     }
@@ -75,7 +87,7 @@ const mod = factory((name) => {
   if (name === 'react') return React
   throw new Error('unexpected require: ' + name)
 })
-assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,remote,remote.commands,pluginNavigation')
+assert.equal(mod.inject.join(','), 'slots,shortcuts,sessions,uiWorkspace,layout,pluginNavigation')
 
 const calls = { executed: [], selected: [], openedBundle: null, invoked: null, openedSession: null }
 const directory = {

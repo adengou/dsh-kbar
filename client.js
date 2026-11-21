@@ -238,39 +238,16 @@ window.__ModuleLoader__.load({
         }
       }
 
-      function withTimeout(promise, ms = 6000) {
-        return Promise.race([
-          promise,
-          new Promise((_resolve, reject) => setTimeout(() => reject(new Error('remote call timed out')), ms)),
-        ])
-      }
-
-      async function withSession(fn) {
-        const row = currentSession()
-        if (!row) return undefined
-        const run = async () => {
-          if (ctx.sessions && typeof ctx.sessions.using === 'function') {
-            return ctx.sessions.using(row.id, { source: 'kbar' }, async (reference) => {
-              const state = reference.binding.session.getSnapshot()
-              if (state.openState !== 'open') throw state.openError || new Error('session not open')
-              return fn(row)
-            })
-          }
-          return fn(row)
-        }
-        try {
-          return await withTimeout(Promise.resolve(run()))
-        } catch {
-          return undefined
-        }
-      }
-
-      function fetchJson(url, timeoutMs = 20000) {
+      function fetchJson(url, options = {}) {
+        const method = options.method || 'GET'
+        const body = options.body
+        const timeoutMs = options.timeoutMs || 20000
         return new Promise((resolve, reject) => {
           try {
             const xhr = new XMLHttpRequest()
-            xhr.open('GET', url, true)
+            xhr.open(method, url, true)
             xhr.setRequestHeader('accept', 'application/json')
+            if (body !== undefined) xhr.setRequestHeader('content-type', 'application/json')
             xhr.timeout = timeoutMs
             xhr.onload = () => {
               if (xhr.status >= 200 && xhr.status < 300) {
@@ -280,12 +257,12 @@ window.__ModuleLoader__.load({
                   reject(error)
                 }
               } else {
-                reject(new Error('catalog status ' + xhr.status))
+                reject(new Error('kbar http ' + xhr.status))
               }
             }
-            xhr.onerror = () => reject(new Error('catalog network error'))
-            xhr.ontimeout = () => reject(new Error('catalog timeout'))
-            xhr.send()
+            xhr.onerror = () => reject(new Error('kbar network error'))
+            xhr.ontimeout = () => reject(new Error('kbar timeout'))
+            xhr.send(body === undefined ? null : body)
           } catch (error) {
             reject(error)
           }
@@ -326,22 +303,62 @@ window.__ModuleLoader__.load({
         }
       }
 
-      let loadedCwd = null
+      let loadedMarker = null
 
       function currentCwd() {
         const row = currentSession()
         return row && typeof row.cwd === 'string' ? row.cwd : undefined
       }
 
+      function currentSessionId() {
+        const row = currentSession()
+        return row && typeof row.id === 'string' ? row.id : undefined
+      }
+
+      function commandItemsFrom(commands) {
+        return (Array.isArray(commands) ? commands : [])
+          .filter((command) => command && typeof command.name === 'string')
+          .map((command) => {
+            const needsInput = command.input !== undefined
+            const hint = needsInput ? String((command.input && command.input.hint) || '') : ''
+            return {
+              kind: 'slash',
+              id: 'slash:' + command.name,
+              title: '/' + command.name,
+              secondary: String(command.description || hint || '') + (needsInput ? ' · 需要参数，选中复制' : ''),
+              keywords: String(command.description || '') + ' ' + hint + ' 命令 command 斜杠 slash',
+              updatedAt: 0,
+              run: () => {
+                if (needsInput) return copyText('/' + command.name + ' ')
+                const sessionId = currentSessionId()
+                if (sessionId === undefined) throw new Error('session is not open')
+                return fetchJson('/api/kbar/execute', {
+                  method: 'POST',
+                  body: JSON.stringify({ sessionId, line: '/' + command.name }),
+                  timeoutMs: 40000,
+                }).then((outcome) => {
+                  if (!outcome || outcome.ok !== true) {
+                    throw new Error((outcome && outcome.error) || 'command execution failed')
+                  }
+                })
+              },
+            }
+          })
+      }
+
       async function loadPlugins(force = false) {
         const cwd = currentCwd()
-        const marker = cwd || null
+        const sessionId = currentSessionId()
+        const marker = (cwd || '') + '|' + (sessionId || '')
         if (loading) return
-        if (!force && plugins !== null && loadedCwd === marker) return
+        if (!force && plugins !== null && loadedMarker === marker) return
         loading = true
         try {
-          const suffix = cwd ? '?cwd=' + encodeURIComponent(cwd) : ''
-          const payload = await fetchJson('/api/kbar/catalog' + suffix, 20000)
+          const params = []
+          if (cwd) params.push('cwd=' + encodeURIComponent(cwd))
+          if (sessionId) params.push('sessionId=' + encodeURIComponent(sessionId))
+          const suffix = params.length ? '?' + params.join('&') : ''
+          const payload = await fetchJson('/api/kbar/catalog' + suffix, { timeoutMs: 20000 })
           if (payload && payload.ok) {
             if (Array.isArray(payload.plugins)) {
               plugins = payload.plugins
@@ -369,7 +386,8 @@ window.__ModuleLoader__.load({
                   run: () => copyText('/' + skill.name),
                 }))
             }
-            loadedCwd = marker
+            slashCommands = commandItemsFrom(payload.commands)
+            loadedMarker = marker
           }
         } catch {
           /* catalog route unavailable */
@@ -377,37 +395,6 @@ window.__ModuleLoader__.load({
           loading = false
         }
         if (state.open) refreshRows()
-      }
-
-      async function loadSlashCommands() {
-        try {
-          const result = await withSession((row) => ctx.remote.commands.list(row.id))
-          if (!result || !result.ok || !Array.isArray(result.value)) return
-          slashCommands = result.value.map((command) => {
-            const needsInput = command.input !== undefined
-            const hint = needsInput ? String((command.input && command.input.hint) || '') : ''
-            return {
-              kind: 'slash',
-              id: 'slash:' + command.name,
-              title: '/' + command.name,
-              secondary: String(command.description || hint || '') + (needsInput ? ' · 需要参数，选中复制' : ''),
-              keywords: String(command.description || '') + ' ' + hint + ' 命令 command 斜杠 slash',
-              updatedAt: 0,
-              run: () => {
-                if (needsInput) return copyText('/' + command.name + ' ')
-                return withSession((row) => ctx.remote.commands.execute(row.id, '/' + command.name, [])).then((outcome) => {
-                  if (outcome === undefined) throw new Error('command execution unavailable')
-                  if (outcome.ok !== true) {
-                    throw new Error((outcome.error && outcome.error.message) || 'command execution failed')
-                  }
-                })
-              },
-            }
-          })
-          if (state.open) refreshRows()
-        } catch {
-          /* command catalog unavailable */
-        }
       }
 
       function compute() {
@@ -469,7 +456,6 @@ window.__ModuleLoader__.load({
           set({ open: true, query: '', index: 0, rows: compute() })
           loadModels()
           loadPlugins()
-          loadSlashCommands()
         },
         close() {
           if (!state.open || closing) return
@@ -863,7 +849,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'remote', 'remote.commands', 'pluginNavigation'],
+      inject: ['slots', 'shortcuts', 'sessions', 'uiWorkspace', 'layout', 'pluginNavigation'],
       apply(ctx) {
         const store = createStore(ctx)
 
