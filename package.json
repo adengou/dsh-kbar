@@ -1,7 +1,7 @@
 {
   "name": "dsh-kbar",
-  "version": "0.6.7",
-  "description": "Command palette for DSH: Ctrl+Shift+P to search sessions, models, plugins, skills and shortcut commands.",
+  "version": "0.6.8",
+  "description": "Command palette for DeepSeek Harness (DSH): Ctrl+Shift+P searches sessions, models, plugins, skills and slash commands.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -24,9 +24,11 @@
   "keywords": [
     "dsh",
     "dsh-plugin",
+    "deepseek",
     "deepseek-harness",
     "command-palette",
     "quick-open",
+    "launcher",
     "search"
   ],
   "license": "MIT",
