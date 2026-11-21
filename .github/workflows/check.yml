@@ -25,3 +25,5 @@ jobs:
           node -e "const y=require('fs').readFileSync('cordis.patch.yml','utf8'); if(!y.includes('id: kbar')) process.exit(1)"
       - name: Smoke test
         run: node test/smoke.mjs
+      - name: Host route test
+        run: node test/host.mjs
