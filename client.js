@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-kbar',
   factory(require) {
     const React = require('react')
-    const { useEffect, useRef, useState, useSyncExternalStore } = React
+    const { useEffect, useRef, useSyncExternalStore } = React
     const h = React.createElement
 
     const ZH = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language || '')
@@ -12,7 +12,6 @@ window.__ModuleLoader__.load({
           title: 'KBar 命令面板',
           openLabel: '打开命令面板',
           placeholder: '搜索会话，或输入动作…',
-          dragHint: '拖动移动，双击复位',
           closeLabel: '关闭',
           empty: '没有匹配的结果',
           actionGroup: '动作',
@@ -34,7 +33,6 @@ window.__ModuleLoader__.load({
           title: 'KBar command palette',
           openLabel: 'Open the command palette',
           placeholder: 'Search sessions or type an action…',
-          dragHint: 'Drag to move, double-click to reset',
           closeLabel: 'Close',
           empty: 'No matching results',
           actionGroup: 'Action',
@@ -563,35 +561,8 @@ window.__ModuleLoader__.load({
         padding: '12px 14px',
         borderBottom: '1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.16))',
       },
-      dragBar: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        height: 28,
-        padding: '0 12px',
-        borderBottom: '1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.12))',
-        color: 'var(--dsw-alias-label-secondary, #808080)',
-        fontSize: 11,
-        letterSpacing: '0.06em',
-        cursor: 'grab',
-        userSelect: 'none',
-        touchAction: 'none',
-      },
-      dragDots: {
-        fontSize: 15,
-        lineHeight: 1,
-        opacity: 0.75,
-      },
-      dragTitle: {
-        fontWeight: 600,
-      },
-      dragHint: {
-        marginLeft: 'auto',
-        fontSize: 10,
-        opacity: 0.65,
-      },
       closeButton: {
-        marginLeft: 6,
+        marginLeft: 2,
         width: 20,
         height: 20,
         padding: 0,
@@ -726,122 +697,11 @@ window.__ModuleLoader__.load({
       )
     }
 
-    const POSITION_KEY = 'dsh-kbar.position.v1'
-
-    function readPosition() {
-      try {
-        const raw = localStorage.getItem(POSITION_KEY)
-        if (!raw) return null
-        const value = JSON.parse(raw)
-        if (value && typeof value.x === 'number' && typeof value.y === 'number') return { x: value.x, y: value.y }
-      } catch {
-        /* ignore a broken saved position */
-      }
-      return null
-    }
-
-    function writePosition(position) {
-      try {
-        if (position === null) localStorage.removeItem(POSITION_KEY)
-        else localStorage.setItem(POSITION_KEY, JSON.stringify(position))
-      } catch {
-        /* storage unavailable */
-      }
-    }
-
     function KBar(props) {
       const store = props.kbar
       const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
       const inputRef = useRef(null)
       const listRef = useRef(null)
-      const [position, setPosition] = useState(() => readPosition())
-      const positionRef = useRef(position)
-      const dragRef = useRef(null)
-      const panelRef = useRef(null)
-      const backdropRef = useRef(null)
-
-      const applyPosition = (next) => {
-        positionRef.current = next
-        setPosition(next)
-      }
-
-      const startDrag = (event) => {
-        if (event.button !== 0) return
-        const panel = panelRef.current
-        if (!panel) return
-        const rect = panel.getBoundingClientRect()
-        const drag = {
-          offsetX: event.clientX - rect.left,
-          offsetY: event.clientY - rect.top,
-          width: rect.width,
-          baseX: rect.left,
-          baseY: rect.top,
-          next: { x: rect.left, y: rect.top },
-        }
-        dragRef.current = drag
-        panel.style.position = 'fixed'
-        panel.style.left = drag.baseX + 'px'
-        panel.style.top = drag.baseY + 'px'
-        panel.style.margin = '0'
-        panel.style.transition = 'none'
-        panel.style.willChange = 'transform'
-        panel.style.backdropFilter = 'none'
-        if (backdropRef.current) backdropRef.current.style.backdropFilter = 'none'
-        document.body.style.userSelect = 'none'
-        document.body.style.cursor = 'grabbing'
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId)
-        } catch {
-          /* pointer capture unavailable */
-        }
-        event.preventDefault()
-
-        let frame = 0
-        const paint = () => {
-          frame = 0
-          const current = dragRef.current
-          if (!current) return
-          panel.style.transform =
-            'translate3d(' + (current.next.x - drag.baseX) + 'px,' + (current.next.y - drag.baseY) + 'px,0)'
-        }
-        const onMove = (moveEvent) => {
-          if (dragRef.current !== drag) return
-          const maxX = Math.max(8, window.innerWidth - drag.width - 8)
-          const maxY = Math.max(8, window.innerHeight - 80)
-          drag.next = {
-            x: Math.round(Math.min(Math.max(moveEvent.clientX - drag.offsetX, 8), maxX)),
-            y: Math.round(Math.min(Math.max(moveEvent.clientY - drag.offsetY, 8), maxY)),
-          }
-          if (frame === 0) frame = requestAnimationFrame(paint)
-        }
-        const onUp = () => {
-          dragRef.current = null
-          window.removeEventListener('pointermove', onMove)
-          window.removeEventListener('pointerup', onUp)
-          if (frame !== 0) cancelAnimationFrame(frame)
-          document.body.style.userSelect = ''
-          document.body.style.cursor = ''
-          panel.style.transform = ''
-          panel.style.willChange = ''
-          panel.style.transition = ''
-          panel.style.backdropFilter = ''
-          if (backdropRef.current) backdropRef.current.style.backdropFilter = ''
-          applyPosition(drag.next)
-          writePosition(drag.next)
-        }
-        window.addEventListener('pointermove', onMove)
-        window.addEventListener('pointerup', onUp)
-      }
-
-      const resetPosition = () => {
-        writePosition(null)
-        const panel = panelRef.current
-        if (panel) {
-          panel.style.transform = ''
-          panel.style.willChange = ''
-        }
-        applyPosition(null)
-      }
 
       useEffect(() => {
         if (!state.open) return undefined
@@ -869,16 +729,6 @@ window.__ModuleLoader__.load({
       }, [state.open, store])
 
       useEffect(() => {
-        if (!state.open || positionRef.current === null) return
-        const current = positionRef.current
-        const maxX = Math.max(8, window.innerWidth - 688)
-        const maxY = Math.max(8, window.innerHeight - 120)
-        if (current.x > maxX || current.y > maxY) {
-          applyPosition({ x: Math.min(current.x, maxX), y: Math.min(current.y, maxY) })
-        }
-      }, [state.open])
-
-      useEffect(() => {
         if (!state.open) return
         const list = listRef.current
         if (!list) return
@@ -893,7 +743,6 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         {
-          ref: backdropRef,
           style: styles.backdrop,
           onMouseDown: (event) => {
             if (event.target === event.currentTarget) store.close()
@@ -902,42 +751,11 @@ window.__ModuleLoader__.load({
         h(
           'div',
           {
-            ref: panelRef,
-            style: position
-              ? { ...styles.panel, position: 'fixed', left: position.x, top: position.y, margin: 0 }
-              : styles.panel,
+            style: styles.panel,
             role: 'dialog',
             'aria-modal': 'true',
             'aria-label': TEXT.title,
           },
-          h(
-            'div',
-            {
-              style: styles.dragBar,
-              title: TEXT.dragHint,
-              onPointerDown: startDrag,
-              onDoubleClick: resetPosition,
-            },
-            h('span', { style: styles.dragDots }, '⠿'),
-            h('span', { style: styles.dragTitle }, 'KBar'),
-            h('span', { style: styles.dragHint }, TEXT.dragHint),
-            h(
-              'button',
-              {
-                type: 'button',
-                title: TEXT.closeLabel,
-                'aria-label': TEXT.closeLabel,
-                style: styles.closeButton,
-                onPointerDown: (event) => event.stopPropagation(),
-                onDoubleClick: (event) => event.stopPropagation(),
-                onClick: (event) => {
-                  event.stopPropagation()
-                  store.close()
-                },
-              },
-              '×',
-            ),
-          ),
           h(
             'div',
             { style: styles.header },
@@ -967,6 +785,17 @@ window.__ModuleLoader__.load({
               },
             }),
             h('kbd', { style: styles.kbd }, OPEN_LABEL),
+            h(
+              'button',
+              {
+                type: 'button',
+                title: TEXT.closeLabel,
+                'aria-label': TEXT.closeLabel,
+                style: styles.closeButton,
+                onClick: () => store.close(),
+              },
+              '×',
+            ),
           ),
           h(
             'div',
