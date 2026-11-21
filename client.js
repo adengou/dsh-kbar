@@ -910,9 +910,9 @@ window.__ModuleLoader__.load({
           }
         }, 'kbar: shortcut catalog')
 
-        ctx.effect(
-          () =>
-            ctx.shortcuts.register({
+        ctx.effect(() => {
+          try {
+            const dispose = ctx.shortcuts.register({
               id: 'kbar.open',
               label: () => TEXT.openLabel,
               aliases: ['command palette', 'quick open', 'kbar', '命令面板', '快速打开', '搜索会话'],
@@ -926,9 +926,13 @@ window.__ModuleLoader__.load({
               regions: ['page', 'editable'],
               modals: [],
               resolve: () => ({ status: 'handled', run: () => store.toggle() }),
-            }),
-          'kbar: shortcut',
-        )
+            })
+            return typeof dispose === 'function' ? dispose : () => {}
+          } catch (error) {
+            console.warn('[kbar] shortcut unavailable', error)
+            return () => {}
+          }
+        }, 'kbar: shortcut')
 
         ctx.slots.inject('shell.overlay', () =>
           ctx.slots.register(

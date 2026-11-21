@@ -226,4 +226,21 @@ store.run(0)
 await wait(40)
 assert.equal(calls.openedSession, 's1')
 
+const conflictingCtx = {
+  ...ctx,
+  shortcuts: {
+    ...ctx.shortcuts,
+    register: () => {
+      throw new Error('Conflicting shortcut defaults: kbar.open')
+    },
+  },
+}
+let conflictError
+try {
+  mod.apply(conflictingCtx)
+} catch (error) {
+  conflictError = error
+}
+assert.equal(conflictError, undefined, 'shortcut conflicts do not fail activation: ' + (conflictError && conflictError.message))
+
 console.log('kbar smoke test passed')
