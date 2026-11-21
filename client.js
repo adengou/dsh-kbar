@@ -82,23 +82,51 @@ window.__ModuleLoader__.load({
     const OPEN_LABEL = PRIMARY + '+⇧+P'
 
     function score(query, item) {
+      const q = String(query || '').trim().toLowerCase()
+      if (q === '') return 1
       const title = String(item.title || '').toLowerCase()
       const extra = String(item.secondary || '').toLowerCase() + ' ' + String(item.keywords || '').toLowerCase()
-      if (title.startsWith(query)) return 120
-      if (title.includes(query)) return 100 - Math.min(20, title.indexOf(query))
-      if (extra.includes(query)) return 70 - Math.min(20, extra.indexOf(query))
+      if (title.startsWith(q)) return 120
+      if (title.includes(q)) return 100 - Math.min(20, title.indexOf(q))
+      if (extra.includes(q)) return 70 - Math.min(20, extra.indexOf(q))
+
+      const tokens = q.split(/\s+/).filter(Boolean)
+      if (tokens.length > 1) {
+        const normTitle = title.replace(/[-_/]+/g, ' ')
+        const normExtra = extra.replace(/[-_/]+/g, ' ')
+        let total = 0
+        for (const token of tokens) {
+          if (normTitle.startsWith(token)) total += 40
+          else if (normTitle.includes(token)) total += 26
+          else if (normExtra.includes(token)) total += 12
+          else {
+            total = 0
+            break
+          }
+        }
+        if (total > 0) return total
+      }
+
       let i = 0
       let last = -1
       let gaps = 0
-      for (let j = 0; j < title.length && i < query.length; j++) {
-        if (title[j] === query[i]) {
+      for (let j = 0; j < title.length && i < q.length; j++) {
+        if (title[j] === q[i]) {
           if (last >= 0) gaps += j - last - 1
           last = j
           i++
         }
       }
-      if (i < query.length) return 0
-      return 50 - Math.min(40, gaps)
+      if (i === q.length) return 50 - Math.min(40, gaps)
+
+      const compactTitle = title.replace(/[^a-z0-9\u4e00-\u9fff]+/g, '')
+      const compactQuery = q.replace(/[^a-z0-9\u4e00-\u9fff]+/g, '')
+      if (compactQuery === '') return 0
+      let matched = 0
+      for (let j = 0; j < compactTitle.length && matched < compactQuery.length; j++) {
+        if (compactTitle[j] === compactQuery[matched]) matched++
+      }
+      return matched === compactQuery.length ? 30 : 0
     }
 
     function copyText(text) {

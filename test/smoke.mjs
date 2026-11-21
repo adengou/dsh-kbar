@@ -56,7 +56,10 @@ const sandbox = {
         } else {
           this.responseText = JSON.stringify({
             ok: true,
-            plugins: [{ name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' }],
+            plugins: [
+              { name: 'dsh-chubby-whale', version: '1.10.3', title: 'Chubby Whale', description: 'whale pet' },
+              { name: 'dsh-vision-toolkit', version: '0.1.47', title: 'dsh-vision-toolkit', description: 'vision tools' },
+            ],
             skills: [{ name: 'office', description: 'Office documents', provider: 'filesystem' }],
             commands: [
               { name: 'compact', description: 'Compact the conversation' },
@@ -167,6 +170,14 @@ await wait()
 store.setQuery('/')
 const slashKinds = store.getSnapshot().rows.map((row) => row.kind)
 assert.ok(slashKinds.length > 0 && slashKinds.every((kind) => kind === 'slash' || kind === 'skill'), 'slash query lists only slash commands and skills')
+
+store.open()
+await wait()
+store.setQuery('vision toolkit')
+const visionRows = store.getSnapshot().rows
+assert.ok(visionRows.length > 0, 'multi-word query matches hyphenated title')
+assert.equal(visionRows[0].kind, 'plugin')
+assert.ok(visionRows[0].title.includes('vision'), 'multi-word query picks the vision plugin')
 
 store.open()
 await wait()
