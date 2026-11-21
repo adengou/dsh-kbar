@@ -1,8 +1,25 @@
 # dsh-kbar
 
+[![npm](https://img.shields.io/npm/v/dsh-kbar)](https://www.npmjs.com/package/dsh-kbar)
+[![license](https://img.shields.io/npm/l/dsh-kbar)](LICENSE)
+
 DSH 的命令面板。按 `Ctrl+Shift+P`（macOS `Cmd+Shift+P`）打开，输入关键字，回车执行。
 
 ![KBar 命令面板](docs/screenshot.png)
+
+## English
+
+A command palette for DeepSeek Harness. Press `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS), type a keyword, press Enter.
+
+- Searches sessions, slash commands, skills, models and installed bundles.
+- Runs registered DSH shortcut commands.
+- Also reachable from the sidebar footer.
+
+```sh
+dsh plugin --profile web add dsh-kbar
+```
+
+DSH Desktop: Settings → Plugins. `Ctrl+K` remains DSH's own session search.
 
 ## 能做什么
 
