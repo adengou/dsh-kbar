@@ -1,6 +1,6 @@
 {
   "name": "dsh-kbar",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Command palette for DSH: Ctrl+Shift+P to search sessions, models, plugins, skills and shortcut commands.",
   "type": "module",
   "main": "index.js",

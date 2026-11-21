@@ -129,6 +129,12 @@ window.__ModuleLoader__.load({
       return matched === compactQuery.length ? 30 : 0
     }
 
+    function clipText(value, max) {
+      const chars = Array.from(String(value || ''))
+      if (chars.length <= max) return chars.join('')
+      return chars.slice(0, max).join('') + '…'
+    }
+
     function copyText(text) {
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
@@ -395,7 +401,9 @@ window.__ModuleLoader__.load({
                   kind: 'plugin',
                   id: 'plugin:' + bundle.name,
                   title: String(bundle.title || bundle.name),
-                  secondary: bundle.version ? 'v' + bundle.version : '',
+                  secondary: [bundle.version ? 'v' + bundle.version : '', clipText(bundle.description, 60)]
+                    .filter(Boolean)
+                    .join(' · '),
                   keywords: String(bundle.name) + ' ' + String(bundle.description || '') + ' 插件 plugin',
                   updatedAt: 0,
                   run: () => ctx.pluginNavigation.openBundle(bundle.name),
