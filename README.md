@@ -2,6 +2,8 @@
 
 DSH 的命令面板。按 `Ctrl+Shift+P`（macOS `Cmd+Shift+P`）打开，输入关键字，回车执行。
 
+![KBar 命令面板](docs/screenshot.png)
+
 ## 能做什么
 
 | 输入 | 结果 | 回车后 |
